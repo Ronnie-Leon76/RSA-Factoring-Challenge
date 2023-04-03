@@ -11,7 +11,8 @@ int main(int argc, char *argv[])
 	char *line;
 	size_t size = 0;
 	ssize_t read;
-	mpz_t num, i;
+	pthread_t threads[8];
+	uint8_t thread_count = 0;
 
 	if (argc != 2)
 	{
@@ -24,37 +25,26 @@ int main(int argc, char *argv[])
 		printf("error: Can't open file %s\n", argv[1]);
 		return (EXIT_FAILURE);
 	}
-	mpz_init(num);
-	mpz_init(i);
+
 	while ((read = getline(&line, &size, file)) != -1)
 	{
-		mpz_set_str(num, line, 10);
-		mpz_set_ui(i, 2);
+		FactorizationData *data = (FactorizationData *)malloc(sizeof(FactorizationData));
+		mpz_init_set_str(data->num, line, 10);
+		mpz_init(data->i);
 
-		gmp_printf("%Zd =", num);
-
-		while (mpz_cmp(i, num) <= 0)
+		if (thread_count < 8)
 		{
-			if (mpz_divisible_p(num, i))
-			{
-				gmp_printf(" %Zd", i);
-				mpz_divexact(num, num, i);
-				if (mpz_cmp_ui(num, 1) != 0)
-				{
-					gmp_printf(" x ");
-				}
-			}
-			else
-			{
-				mpz_add_ui(i, i, 1);
-			}
+			pthread_create(&threads[thread_count], NULL, factorize_thread, data);
+			thread_count++;
 		}
-		printf("\n");
+		else
+		{
+			pthread_join(threads[thread_count - 1], NULL);
+			pthread_create(&threads[thread_count - 1], NULL, factorize_thread, data);
+		}
 	}
 
 	fclose(file);
-	mpz_clear(num);
-	mpz_clear(i);
 	if (line)
 		free(line);
 
